@@ -13,11 +13,12 @@ import { AdvancedSearchDto } from './dto/advande-search.dto';
 @Injectable()
 export class HeroesService {
   private heroes: Hero[] = structuredClone(heroesData);
+  private nextId = Math.max(0, ...heroesData.map((hero) => Number(hero.id))) + 1;
 
   create(createHeroDto: CreateHeroDto) {
     const hero = {
       ...createHeroDto,
-      id: `${this.heroes.length + 1}`,
+      id: `${this.nextId++}`,
       slug: createHeroDto.name.toLowerCase().replace(/ /g, '-'),
     };
 
@@ -63,16 +64,14 @@ export class HeroesService {
   update(id: string, updateHeroDto: UpdateHeroDto) {
     const hero = this.findOne(id);
 
-    return {
-      ...hero,
-      ...updateHeroDto,
-    };
+    Object.assign(hero, updateHeroDto);
+    return hero;
   }
 
   remove(id: string) {
     const hero = this.findOne(id);
 
-    this.heroes = this.heroes.filter((hero) => hero.id !== id);
+    this.heroes = this.heroes.filter((candidate) => candidate.id !== hero.id);
 
     return hero;
   }
@@ -80,11 +79,13 @@ export class HeroesService {
   getHeroSummary() {
     const heroes = this.heroes;
     const totalHeroes = heroes.length;
-    const strongestHero = heroes.reduce((max, hero) =>
-      hero.strength > max.strength ? hero : max,
+    const strongestHero = heroes.reduce<Hero | null>(
+      (max, hero) => !max || hero.strength > max.strength ? hero : max,
+      null,
     );
-    const smartestHero = heroes.reduce((max, hero) =>
-      hero.intelligence > max.intelligence ? hero : max,
+    const smartestHero = heroes.reduce<Hero | null>(
+      (max, hero) => !max || hero.intelligence > max.intelligence ? hero : max,
+      null,
     );
 
     const heroCount = heroes.reduce((acc, hero) => {
@@ -116,7 +117,7 @@ export class HeroesService {
     const { name, team, category, universe, status, strength } =
       advancedSearchDto;
 
-    if (!name && !team && !category && !universe && !status && !strength) {
+    if (!name && !team && !category && !universe && !status && strength == null) {
       throw new BadRequestException(
         'At least one search parameter is required',
       );
@@ -156,7 +157,7 @@ export class HeroesService {
       );
     }
 
-    if (strength) {
+    if (strength != null) {
       filteredHeroes = filteredHeroes.filter(
         (hero) => hero.strength >= strength,
       );
